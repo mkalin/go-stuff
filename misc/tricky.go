@@ -9,11 +9,11 @@ func main() {
 
    values := []string{"a", "b", "c"}
    for _, v := range values {
-		v := v // necessary to get all three
-      go func() {
+		u := v 
+      go func(v string) {
          fmt.Println(v)
          done <- true
-      }()
+      }(u)
    }
 	
    // wait for all goroutines to complete before exiting

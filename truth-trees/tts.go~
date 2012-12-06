@@ -1,0 +1,12 @@
+package truth-trees
+
+import (
+	"fmt"
+)
+
+type struct TruthTree {
+	name     string
+	parent   *TruthTree
+	children []*TruthTree
+
+}
