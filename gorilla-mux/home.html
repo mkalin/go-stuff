@@ -3,10 +3,30 @@
   <head>
     <style type = "text/css">
       input {color: #fff; background-color: #666; font-weight-bold; font-size: 105%;}
+      button {color: #fff; background-color: #666; font-weight-bold; font-size: 105%;}
       legend {color:#0000ee; font-size: 107%;}
       fieldset {width: 600px;}
       span {color: black; font-size: 105%;}
     </style>
+    <script type = 'text/javascript'>
+      function ajax_call() {
+         var req = new XMLHttpRequest();
+         // Specify an ajax callback.
+         req.onreadystatechange = function() {
+            if (req.readyState == 4) {
+              var json = req.responseText;
+              var obj = JSON.parse(json);
+              document.getElementById('who').innerHTML = obj.Author + " in " + obj.Words + " words:";
+              document.getElementById('what').innerHTML = obj.Truism;
+            }
+         }
+ 
+         // Generate and send an asynchronous Ajax request.
+         req.open("GET", "http://localhost:8080/ajax", true);
+         req.send();
+      }
+    </script>
+
     <script type = 'text/javascript'>
       function set_action(form) {
         var id = document.getElementById('sayingD').value;
@@ -55,6 +75,16 @@
 	  </p>
 	</form>
       </fieldset>
+
+      <p>
+	<fieldset><legend>JSON-based "restful" web service</legend>
+	  <button type = "button" onclick = "ajax_call()">Get JSON</button>
+	  <p>
+	    <span id = 'who'></span>&nbsp;
+	    <span id = 'what'></span>
+	  </p>
+	</fieldset>
+      </p>
     </p>
   </body>
 </html>

@@ -12,6 +12,7 @@ import (
 	"text/template"
 	"regexp"
 	"strconv"
+	"encoding/json"
 )
 /****/
 
@@ -39,6 +40,11 @@ type SayingCompany struct {
 	What  string
 }
 
+type Cliche struct {
+   Truism string
+	Author string
+   Words  int
+}
 /****/
 
 /** globals **/
@@ -72,7 +78,7 @@ func PredictionsH(response http.ResponseWriter, request *http.Request) {
 	t := getTemplate("predictions.html")
 	t.Execute(response, sayingsList)
 
-	log("sayings")
+	log("predictions")
 }
 
 // GET /prediction
@@ -92,7 +98,7 @@ func PredictionH(response http.ResponseWriter, request *http.Request) {
 		response.Write([]byte(msg))
 	}
 
-	log("saying")
+	log("prediction")
 }
 
 // GET /predictionD/{id:[0-9]+}
@@ -101,7 +107,29 @@ func PredictionD(response http.ResponseWriter, request *http.Request) {
 	id := vars["id"]
 
 	sendResponse(response, id)
-	log("sayingD")
+	log("predictionD")
+}
+
+// GET /ajax
+func AjaxH(rw http.ResponseWriter, r *http.Request) { 
+	// Create a cliche and set its properties.
+	cliche := new(Cliche)
+	cliche.Truism = "A penny saved is a penny earned."
+	cliche.Author = "Ben Franklin"
+	parts := strings.Split(cliche.Truism, " ")
+	cliche.Words = len(parts)
+
+	// Convert the cliche to JSON.
+	obj, err := json.Marshal(cliche)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
+	// Write the JSON back to the client.
+	fmt.Println(string(obj))
+	rw.Write(obj)
+
+	log("ajax")
 }
 
 func sendResponse(response http.ResponseWriter, id string) {
@@ -147,6 +175,8 @@ func startServer() {
 	router.HandleFunc("/predictionD/{id:[0-9]+}", PredictionD).Methods("POST")
 
    router.HandleFunc("/companies", CompaniesH).Methods("POST")
+
+	router.HandleFunc("/ajax", AjaxH).Methods("GET")
 
 	// Enable the router.
    http.Handle("/", router)
