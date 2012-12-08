@@ -38,6 +38,7 @@ type SayingCompany struct {
 	Which string
 	What  string
 }
+
 /****/
 
 /** globals **/
