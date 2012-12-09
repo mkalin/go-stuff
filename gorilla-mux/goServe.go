@@ -115,7 +115,7 @@ func AjaxH(rw http.ResponseWriter, r *http.Request) {
 	// Create a cliche and set its properties.
 	cliche := new(Cliche)
 	cliche.Truism = "A penny saved is a penny earned."
-	cliche.Author = "Ben Franklin (apocryphally)"
+	cliche.Author = "Ben Franklin (apocryphal?)"
 	parts := strings.Split(cliche.Truism, " ")
 	cliche.Words = len(parts)
 
