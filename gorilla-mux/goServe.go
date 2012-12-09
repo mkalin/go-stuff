@@ -126,7 +126,6 @@ func AjaxH(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write the JSON back to the client.
-	fmt.Println(string(obj))
 	rw.Write(obj)
 
 	log("ajax")
