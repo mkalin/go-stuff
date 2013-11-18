@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      legend {color: black; font-size: 108%; font-weight: bold;}
+      input {font-weight: bold; color: #990000; font-size: 105%}
+    </style>
+  </head>
+  <body>
+    <fieldset><legend>Saying of the day</legend>
+      <p style = 'color: #0000ff; font-size: 110%; font-weight: bold;'>
+	{{.Who}} from {{.Which}} predicts: {{.What}}
+      </p>
+    </fieldset>
+    <p>
+      <form action = '/home' method = 'GET'>
+	<input type = 'submit' value = ' Home '/>
+      </form>
+    </p>
+  </body>
+</html>

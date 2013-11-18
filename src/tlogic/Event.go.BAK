@@ -1,0 +1,159 @@
+package main
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+)
+
+//** Relations:
+/* 
+ StartAfterStart(e1, e2):   e1.start > e2.start
+ StartBeforeStart(e1, e2):  e1.start < e2.start
+ StartAfterFinish(e1, e2):  e1.start > e2.finish
+ StartBeforeFinish(e1, e2): e1.start < e2.finish
+ During(e1, e2):            e1.start > e2.start and e1.finish < e2.finish 
+*/
+
+type Relation func(*Event, *Event) bool
+
+type Relatum struct {
+	relation Relation
+	relatum  *Event
+}
+
+// An Event has a specified start time but may have an indefinite finish time, which
+// must be >= its start time. If the start and finish times are the same, the
+// Event's duration is 0; otherwise, its duration is at least one Duration unit.
+type Event struct {
+	id            int
+	name          string
+	description   string
+	incoming      []*Event       // links
+	incomingN     int
+	outgoing      []*Event       // ditto
+	start         time.Time
+	finish        time.Time
+	duration      time.Duration
+	durationScale time.Duration  // hour,...,second,...,nanosecond
+	relata        []*Relatum
+}
+
+var eventList []*Event
+
+//** functions
+func StartAfterStart(e1, e2 *Event) bool { return true }
+func StartAfterFinish(e1, e2 *Event) bool { return true }
+func StartBeforeStart(e1, e2 *Event) bool { return true }
+func StartBeforeFinish(e1, e2 *Event) bool { return true }
+func During(e1, e2 *Event) bool { return true }
+
+//** methods
+
+func (e *Event) ToString() string {
+	froms := []int{}
+	tos := []int{}
+
+	for _, from := range e.incoming {
+		froms = append(froms, from.id)
+	}
+	for _, to := range e.outgoing {
+		tos = append(tos, to.id)
+	}
+
+   return fmt.Sprintf("%s:\n\tId:\t%1d\n\tStart:\t%v (%v)\n\tFrom:\t%v (%v in all)\n\tTo:\t%v (%v in all)\n", 
+		e.name, e.id, e.start, e.start.UnixNano(), froms, len(froms), tos, len(tos))
+}
+
+func setIncomingCounts() {
+	for _, event := range eventList {
+		event.incomingN = len(event.incoming)
+	}
+}
+
+func topSort(nodes []*Event) []*Event {
+	setIncomingCounts()
+	sorted := []*Event{}
+	nopreds := []*Event{}
+
+	// Initial list consists of nodes with no incoming edges.
+	for _, event := range eventList {
+		if event.incomingN == 0 {
+			nopreds = append(nopreds, event)
+		}
+	}
+
+	// Sort.
+	for len(nopreds) > 0 {
+		// Pick an event from the nopreds list and add it to the sorted list.
+		event = nopreds[0]
+		sorted = append(sorted, event)
+		
+		// Remove the picked event from the nopreds list.
+		nopreds[len(nopreds) - 1], nopreds[0], nopreds = 
+			nil, nopreds[len(nopreds) - 1], nopreds[:len(nopreds) - 1]
+		
+		for _, to := range event.outgoing {
+			to.incomingN--                    // "remove" the edge
+			if to.incomingN == 0 {            // any more incoming edges?
+				nopreds = append(nopreds, to)  // if not, add node to nopreds list
+			}
+		}
+	}
+	for _, event := range eventList {
+		if event.incomingN > 0 {
+			return nopreds        // cycle detected: return empty list
+		}
+	}
+	return sorted               // non-empty, topologically sorted list
+}
+
+func dumpList(list []*Event) {
+	for _, event := range list {
+		fmt.Println(event.ToString())
+	}
+}
+
+func computeOutgoing(list []*Event) {
+	for _, event := range list {
+		for _, from := range event.incoming {
+			i := from.id
+			eventList[i].outgoing = append(eventList[i].outgoing, event)
+		}
+	}
+}
+
+func buildList() {
+	eventList = []*Event{}
+	
+	// basic events
+	for i := 0; i < 8; i++ {
+		event := new(Event)
+		event.id = i 
+		event.name = "Event-" + strconv.Itoa(i)
+		event.start = time.Now()
+		eventList = append(eventList, event)
+	}
+	
+	// incoming
+	eventList[1].incoming = append(eventList[1].incoming, eventList[0]) // 0 --> 1
+	eventList[2].incoming = append(eventList[2].incoming, eventList[0]) // 0 --> 2
+	eventList[6].incoming = append(eventList[6].incoming, eventList[0]) // 0 --> 6
+	eventList[3].incoming = append(eventList[3].incoming, eventList[1]) // 1 --> 3
+	eventList[3].incoming = append(eventList[3].incoming, eventList[2]) // 2 --> 3
+	eventList[4].incoming = append(eventList[4].incoming, eventList[2]) // 2 --> 4
+	eventList[5].incoming = append(eventList[5].incoming, eventList[3]) // 3 --> 5
+	eventList[5].incoming = append(eventList[5].incoming, eventList[4]) // 4 --> 5
+	eventList[7].incoming = append(eventList[7].incoming, eventList[5]) // 5 --> 7
+	eventList[7].incoming = append(eventList[7].incoming, eventList[6]) // 6 --> 7
+
+	// outgoing
+	computeOutgoing(eventList)
+}
+
+func main() {
+	buildList()
+	dumpList(eventList)
+	tsorted := topSort(eventList)
+	fmt.Println(len(tsorted))
+}

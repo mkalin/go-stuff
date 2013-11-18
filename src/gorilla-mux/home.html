@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style type = "text/css">
+      input {color: #fff; background-color: #666; font-weight-bold; font-size: 105%;}
+      button {color: #fff; background-color: #666; font-weight-bold; font-size: 105%;}
+      legend {color:#0000ee; font-size: 107%;}
+      fieldset {width: 600px;}
+      span {color: black; font-size: 110%;}
+    </style>
+    <script type = 'text/javascript'>
+      function ajax_call() {
+         var req = new XMLHttpRequest();
+         // Specify an ajax callback.
+         req.onreadystatechange = function() {
+            if (req.readyState == 4) {
+              var json = req.responseText;
+              var obj = JSON.parse(json);
+              document.getElementById('who').innerHTML = obj.Author + " in " + obj.Words + " words:";
+              document.getElementById('what').innerHTML = obj.Truism;
+            }
+         }
+ 
+         // Generate and send an asynchronous Ajax request.
+         req.open("GET", "http://localhost:8080/ajax", true);
+         req.send();
+      }
+    </script>
+
+    <script type = 'text/javascript'>
+      function set_action(form) {
+        var id = document.getElementById('sayingD').value;
+        var new_action = form.action + '/' + id;
+        form.action = new_action;
+
+        return true;
+      }
+    </script>
+    <title>GoLang Server Demo</title>
+  </head>
+  <body>
+    <p>
+      <fieldset><legend>Companies and their predictions</legend>
+	<form action = 'http://localhost:8080/companies' method = 'post'>
+	  <p>
+	    <input type = 'submit' value = '  Companies  '>
+	  </p>
+	</form>
+	<hr/>
+	<form action = 'http://localhost:8080/predictions' method = 'post'>
+	  <p>
+	    <input type = 'submit' value = '  Predictions  '>
+	  </p>
+	</form>
+	<hr/>      
+	<form action = 'http://localhost:8080/prediction' method = 'post'>
+	  <p>
+            <span>Prediction id:</span>
+	    <input id = 'saying' name = 'saying' 
+		   type = 'text' size = '1' maxlength = '2'/>   
+	    <input type = 'submit' value = '  Prediction  '/>
+	  </p>
+	</form>
+	<hr/>      
+	<!-- Dynamically reset this action attribute to hit a different
+	     handler on the server side. -->
+	<form id = 'dyn' name = 'dyn' 
+	      action = 'http://localhost:8080/predictionD' method = 'post'
+	      onsubmit = 'return set_action(this);'>
+	  <p>
+            <span>Prediction id:</span>
+	    <input id = 'sayingD' name = 'sayingD' 
+		   type = 'text' size = '1' maxlength = '2'/>   
+	    <input type = 'submit' value = '  PredictionD  '/>
+	  </p>
+	</form>
+      </fieldset>
+
+      <p>
+	<fieldset><legend>JSON-based "restful" web service</legend>
+	  <button type = "button" onclick = "ajax_call()">Get JSON</button>
+	  <p>
+	    <span id = 'who'></span>&nbsp;
+	    <span id = 'what'></span>
+	  </p>
+	</fieldset>
+      </p>
+    </p>
+  </body>
+</html>

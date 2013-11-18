@@ -1,0 +1,123 @@
+package main
+
+import (
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+)
+
+
+type RestfulService struct {
+
+}
+
+type Service struct {
+	rs        RestfulService
+	ch        chan bool
+	waitGroup *sync.WaitGroup
+}
+
+// Make a new Service.
+func NewService() *Service {
+	s := &Service{
+		ch:        make(chan bool),
+		waitGroup: &sync.WaitGroup{},
+	}
+	s.waitGroup.Add(1)
+	return s
+}
+
+// Accept connections and spawn a goroutine to serve each one.  Stop listening
+// if anything is received on the service's channel.
+func (s *Service) Serve(listener *net.TCPListener) {
+	defer s.waitGroup.Done()
+	for {
+		select {
+		case <-s.ch:
+			log.Println("stopping listening on", listener.Addr())
+			listener.Close()
+			return
+		default:
+		}
+		listener.SetDeadline(time.Now().Add(1e9))
+		conn, err := listener.AcceptTCP()
+		if nil != err {
+			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				continue
+			}
+			log.Println(err)
+		}
+		log.Println(conn.RemoteAddr(), "connected")
+		s.waitGroup.Add(1)
+		go s.handleRequest(conn)
+	}
+}
+
+// Stop the service by closing the service's channel.  Block until the service
+// is really stopped.
+func (s *Service) Stop() {
+	close(s.ch)
+	s.waitGroup.Wait()
+}
+
+// Serve a connection by reading and writing what was read.  That's right, this
+// is an echo service.  Stop reading and writing if anything is received on the
+// service's channel but only after writing what was read.
+func (s *Service) handleRequest(conn *net.TCPConn) {
+	defer conn.Close()
+	defer s.waitGroup.Done()
+	for {
+		select {
+		case <-s.ch:
+			log.Println("disconnecting", conn.RemoteAddr())
+			return
+		default:
+		}
+		conn.SetDeadline(time.Now().Add(1e9))
+		buf := make([]byte, 4096)
+		if _, err := conn.Read(buf); nil != err {
+			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				continue
+			}
+			log.Println(err)
+			return
+		}
+		if _, err := conn.Write(buf); nil != err {
+			log.Println(err)
+			return
+		}
+	}
+}
+
+func getListener() *net.TCPListener {
+	endpoint := "127.0.0.1:9876"  // ip + port
+	socketType := "tcp"
+	addr, err := net.ResolveTCPAddr(socketType, endpoint)
+	if nil != err {
+		log.Fatalln(err)
+	}
+	listener, err := net.ListenTCP(socketType, addr)
+	if nil != err {
+		log.Fatalln(err)
+	}
+	return listener
+}
+
+func main() {
+	listener := getListener()
+	log.Println("Listening restfully on", listener.Addr())
+
+	// Make a new service and send it into the background.
+	service := NewService()
+	go service.Serve(listener)
+
+	// Handle SIGINT and SIGTERM for graceful exit.
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	log.Println(<-ch)
+	service.Stop()
+}

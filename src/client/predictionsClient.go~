@@ -1,0 +1,25 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+	//"net/http"
+)
+
+const (
+	baseUrl    = "http://localhost:"
+	portNumber = "8080"
+	uri        = "/cliches2"
+)
+
+func main() { // entry point
+	// Generate the URL string.
+	var parts []string 
+	parts = append(parts, baseUrl, portNumber, uri)
+	url = strings.Join(parts, "")
+
+	fmt.Println(url)
+
+	//response, err := http.Get("http://example.com/")
+	
+}
