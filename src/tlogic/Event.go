@@ -231,21 +231,17 @@ func buildEvents() map[int]*Event {
 	return eventMap
 }
 
-func buildExample() {
+func buildExample() map[int]*Event {
 	eventMap = buildEvents()
 	buildConstraints(eventMap)
 	computeOutgoing(eventMap)
+	return eventMap
 }
 
 func main() {
-	buildExample()
+	eventMap = buildExample()
 	list := listifyMap(eventMap)
 	dumpList("Original list:\n", list)
 	sortedList := topSort(list)
 	dumpList("Sorted list:\n", sortedList)
-
-	fmt.Println("\n\n")
-	for _, event := range eventMap {
-		fmt.Println(len(event.Incoming))
-	}
 }
