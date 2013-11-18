@@ -153,7 +153,7 @@ func buildConstraints() {
 		tempFunc: FinishBeforeStart,
 	   event:    e2}
 	e1.TempRelations = append(e1.TempRelations, tr)
-	e2.Incoming = append(e2.Incomming, e1)
+	e2.Incoming = append(e2.Incoming, e1)
 	
 	// e1 (load luggage) is Before e2 (gas up car)
 	e1 = eventMap[3]
