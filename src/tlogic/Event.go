@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -64,27 +65,46 @@ func During(e1, e2 *Event) bool { return e1.Start.After(e2.Start) && e1.Finish.B
 
 //** methods
 func (e *Event) String() string {
-	return ""
+	froms := []int{}
+	tos := []int{}
+
+	for _, from := range e.Incoming {
+		froms = append(froms, from.Id)
+	}
+	for _, to := range e.Outgoing {
+		tos = append(tos, to.Id)
+	}
+
+	return fmt.Sprintf("%s:\n\tId:\t%1d\n\tStart:\t%v (%v)\n\tFrom:\t%v (%v in all)\n\tTo:\t%v (%v in all)\n", 
+		e.Name, e.Id, e.Start, e.Start.UnixNano(), froms, len(froms), tos, len(tos))
 }
 
 //** topological sort support
-func computeOutgoing(list []*Event) {
-	for _, event := range list {
+func computeOutgoing(hash map[int]*Event) {
+	for _, event := range hash {
 		for _, from := range event.Incoming {
-			i := from.Id
-			list[i].Outgoing = append(list[i].Outgoing, event)
+			from.Outgoing = append(from.Outgoing, event)
 		}
 	}
 }
 
-func setIncomingCounts(list []*Event) {
-	for _, event := range list {
+func setIncomingCounts(hash map[int]*Event) {
+	for _, event := range hash {
 		event.IncomingN = len(event.Incoming)
 	}
 }
 
+func listifyMap(hash map[int]*Event) []*Event {
+	list := []*Event{}
+
+	for _, event := range hash {
+		list = append(list, event)
+	}
+	return list
+}
+
 func topSort(list []*Event) []*Event {
-	setIncomingCounts(list)
+	setIncomingCounts(eventMap)
 	sorted := []*Event{}
 	nopreds := []*Event{}
 
@@ -121,96 +141,64 @@ func topSort(list []*Event) []*Event {
 }
 
 //** utilities
-func dumpMap(msg string, hash map[int]*Event) {
+func dumpList(msg string, list []*Event) {
 	fmt.Println(msg)
-	for _, value := range hash {
+	fmt.Println("The map has " + strconv.Itoa(len(eventMap)) + " entries:")
+	for _, value := range list {
 		fmt.Println(value.String())
 	}
 }
 
-func buildConstraints() {
-	// e1 (plan) is During e2 (fix car)
-	e1 := eventMap[1]
-	e2 := eventMap[0]
-	tr := &Relation {
-		tempFunc: During,
-	   event:    e2}
-	e1.TempRelations = append(e1.TempRelations, tr)
-	e1.Incoming = append(e1.Incoming, e2)
-
-	// e1 (plan) is also During e2 (prepare luggage)
-	e2 = eventMap[2]
-	tr = &Relation {
-		tempFunc: During,
-	   event:    e2}
-	e1.TempRelations = append(e1.TempRelations, tr)
-	e1.Incoming = append(e1.Incoming, e2)
-
-	// e2 (load luggage) is After e1 (prepare luggage)
-	e1 = eventMap[3]
-	e2 = eventMap[2]
-	tr = &Relation {
-		tempFunc: FinishBeforeStart,
-	   event:    e2}
-	e1.TempRelations = append(e1.TempRelations, tr)
-	e2.Incoming = append(e2.Incoming, e1)
-	
-	// e1 (load luggage) is Before e2 (gas up car)
-	e1 = eventMap[3]
-	e2 = eventMap[4]	
-	tr = &Relation {
-		tempFunc: FinishBeforeStart,
-	   event:    e2}
-	e1.TempRelations = append(e1.TempRelations, tr)
-	e2.Incoming = append(e2.Incoming, e1)
-
-	// e2 (start car) is AtFinish of e1 (gas up car)
-	e1 = eventMap[4]
-	e2 = eventMap[5]
-	tr = &Relation {
-		tempFunc: StartAtFinish,
-	   event:       e1}
-	e2.TempRelations = append(e2.TempRelations, tr)
-	e2.Incoming = append(e2.Incoming, e1)
-
-	// commence driving (e2) when car is started (e1)
-	e1 = eventMap[5]
-	e2 = eventMap[6]
-	tr = &Relation {
-		tempFunc: StartAtFinish,
-	   event:       e1}
-	e2.TempRelations = append(e2.TempRelations, tr)
-	e2.Incoming = append(e2.Incoming, e1)
-
-	// drive to destination (e2) once driving has begun (e1)
-	e1 = eventMap[6]
-	e2 = eventMap[7]
-	tr = &Relation {
-		tempFunc: StartAtFinish,
-	   event:       e1}
-	e2.TempRelations = append(e2.TempRelations, tr)
-	e2.Incoming = append(e2.Incoming, e1)
-
-	// stop at destination (e2) once the driving there is done (e1)
-	e1 = eventMap[7]
-	e2 = eventMap[8]
-	tr = &Relation {
-		tempFunc: StartAtFinish,
-	   event:       e1}
-	e2.TempRelations = append(e2.TempRelations, tr)
-	e2.Incoming = append(e2.Incoming, e1)
-	
-	// unpack (e2) once the driving is over (e1)
-	e1 = eventMap[8]
-	e2 = eventMap[9]
-	tr = &Relation {
-		tempFunc: StartAtFinish,
-	   event:       e1}
-	e2.TempRelations = append(e2.TempRelations, tr)
-	e2.Incoming = append(e2.Incoming, e1)
+func buildConstraint(hash map[int]*Event, i int, j int, f TempFunc, in int, out int) {
+	e1 := hash[i]
+	e2 := hash[j]
+	inE := hash[in]
+	outE := hash[out]
+	r := &Relation { tempFunc: f, event: e2 }
+	e1.TempRelations = append(e1.TempRelations, r)
+	inE.Incoming = append(inE.Incoming, outE)
 }
 
-func buildEvents() {
+func buildConstraints(hash map[int]*Event) {
+	// e1 (plan) is During e2 (fix car)
+	buildConstraint(hash, 1, 0, During, 1, 0)
+
+	// e1 (plan) is also During e2 (prepare luggage)
+	buildConstraint(hash, 1, 2, During, 1, 2)
+
+	// e2 (load luggage) is After e1 (prepare luggage)
+	buildConstraint(hash, 3, 2, FinishBeforeStart, 2, 3)
+
+	// e1 (load luggage) is Before e2 (gas up car)
+	buildConstraint(hash, 3, 4, FinishBeforeStart, 4, 3)
+
+	// e2 (start car) is AtFinish of e1 (gas up car)
+	buildConstraint(hash, 4, 5, StartAtFinish, 5, 4)
+
+	// commence driving (e2) when car is started (e1)
+	buildConstraint(hash, 5, 6, StartAtFinish, 6, 5)
+
+	// drive to destination (e2) once driving has begun (e1)
+	buildConstraint(hash, 6, 7, StartAtFinish, 7, 6)
+
+	// stop at destination (e2) once the driving there is done (e1)
+	buildConstraint(hash, 7, 8, StartAtFinish, 8, 7)
+
+	// unpack (e2) once the driving is over (e1)
+	buildConstraint(hash, 8, 9, StartAtFinish, 9, 8)
+}
+
+func buildEvent(id int, name string, desc string, dur time.Duration) {
+	event :=  new(Event)
+	event.Id = id
+	event.Name = name
+	event.Description = desc
+	event.DurationScale = time.Minute
+	event.Duration = time.Duration(dur) * event.DurationScale
+	eventMap[id] = event
+}
+
+func buildEvents() map[int]*Event {
 	/* Sample problem with sample events:
 
 	 Problem: Take an automobile trip from X to Y.
@@ -228,95 +216,36 @@ func buildEvents() {
 	 -- unload the luggage     (9)
 	 */
 	eventMap = make(map[int]*Event)
-	
-	// sample model
-	event := new(Event)
-	event.Id = 0
-	event.Name = "Event-plan"
-	event.Description = "Plan the car trip"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(201) * event.DurationScale
-	eventMap[0] = event
-	
-	event = new(Event)
-	event.Id = 1
-	event.Name = "Event-FixJunker"
-	event.Description = "Repair the car as needed"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(505) * event.DurationScale
-	eventMap[1] = event
 
-	event = new(Event)
-	event.Id = 2
-	event.Name = "Event-Pack"
-	event.Description = "Pack up the stuff (but not the kIds and dog)"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(317) * event.DurationScale 
-	eventMap[2] = event
+	buildEvent(0, "Event-plan", "Plan car trip", 201)
+	buildEvent(1, "Event-fix junker", "Repair the car as needed", 505)
+	buildEvent(2, "Event-pack", "Pack up the stuff (but not the kids and dog)", 317)
+	buildEvent(3, "Event-load", "Load the luggage (inclduing the kids and dog)", 127)
+	buildEvent(4, "Event-gasUp", "Fill the gas tank", 12)
+	buildEvent(5, "Event-startCar", "Crank up the junker", 1)
+	buildEvent(6, "Event-commence", "Start driving", 1)
+	buildEvent(7, "Event-drive", "Drive to destination", 819)
+	buildEvent(8, "Event-stop", "Stop driving", 1)
+	buildEvent(9, 	"Event-unload", "Unload the luggage", 42)
 
-	event = new(Event)
-	event.Id = 3
-	event.Name = "Event-Load"
-	event.Description = "Load the luggage (inclduing the kIds and dog)"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(127) * event.DurationScale
-	eventMap[3] = event
-
-	event = new(Event)
-	event.Id = 4
-	event.Name = "Event-GasUp"
-	event.Description = "Fill the gas tank"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(12) * event.DurationScale
-	eventMap[4] = event
-
-	event = new(Event)
-	event.Id = 5
-	event.Name = "Event-StartCar"
-	event.Description = "Crank up the junker"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(1) * event.DurationScale
-	eventMap[5] = event
-
-	event = new(Event)
-	event.Id = 6
-	event.Name = "Event-Commence"
-	event.Description = "Start driving"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(1) * event.DurationScale
-	eventMap[6] =event
-
-	event = new(Event)
-	event.Id = 7
-	event.Name = "Event-Drive"
-	event.Description = "Drive to destination"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(819) * event.DurationScale
-	eventMap[7] = event
-
-	event = new(Event)
-	event.Id = 8
-	event.Name = "Event-Stop"
-	event.Description = "Stop driving"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(1) * event.DurationScale
-	eventMap[8] = event
-
-	event = new(Event)
-	event.Id = 9
-	event.Name = "Event-Unload"
-	event.Description = "Unload the luggage"
-	event.DurationScale = time.Minute
-	event.Duration = time.Duration(42) * event.DurationScale
-	eventMap[9] = event
+	return eventMap
 }
 
 func buildExample() {
-	buildEvents()
-	//computeOutgoing()
+	eventMap = buildEvents()
+	buildConstraints(eventMap)
+	computeOutgoing(eventMap)
 }
 
 func main() {
 	buildExample()
-	dumpMap("Original list:\n", eventMap)
+	list := listifyMap(eventMap)
+	dumpList("Original list:\n", list)
+	sortedList := topSort(list)
+	dumpList("Sorted list:\n", sortedList)
+
+	fmt.Println("\n\n")
+	for _, event := range eventMap {
+		fmt.Println(len(event.Incoming))
+	}
 }
