@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -39,8 +38,6 @@ type Relation struct {
 	tempFunc TempFunc
 	event    *Event
 }
-
-var eventMap map[int]*Event
 
 //** sample temporal relations: extend as desired
 // Some relations are definable via others. For example, StartAfterStart
@@ -103,7 +100,7 @@ func listifyMap(hash map[int]*Event) []*Event {
 	return list
 }
 
-func topSort(list []*Event) []*Event {
+func topSort(eventMap map[int]*Event, list []*Event) []*Event {
 	setIncomingCounts(eventMap)
 	sorted := []*Event{}
 	nopreds := []*Event{}
@@ -143,7 +140,6 @@ func topSort(list []*Event) []*Event {
 //** utilities
 func dumpList(msg string, list []*Event) {
 	fmt.Println(msg)
-	fmt.Println("The map has " + strconv.Itoa(len(eventMap)) + " entries:")
 	for _, value := range list {
 		fmt.Println(value.String())
 	}
@@ -188,7 +184,7 @@ func buildConstraints(hash map[int]*Event) {
 	buildConstraint(hash, 8, 9, StartAtFinish, 9, 8)
 }
 
-func buildEvent(id int, name string, desc string, dur time.Duration) {
+func buildEvent(eventMap map[int]*Event, id int, name string, desc string, dur time.Duration) {
 	event :=  new(Event)
 	event.Id = id
 	event.Name = name
@@ -215,33 +211,33 @@ func buildEvents() map[int]*Event {
 	 -- stop the car           (8)
 	 -- unload the luggage     (9)
 	 */
-	eventMap = make(map[int]*Event)
+	eventMap := make(map[int]*Event)
 
-	buildEvent(0, "Event-plan", "Plan car trip", 201)
-	buildEvent(1, "Event-fix junker", "Repair the car as needed", 505)
-	buildEvent(2, "Event-pack", "Pack up the stuff (but not the kids and dog)", 317)
-	buildEvent(3, "Event-load", "Load the luggage (inclduing the kids and dog)", 127)
-	buildEvent(4, "Event-gasUp", "Fill the gas tank", 12)
-	buildEvent(5, "Event-startCar", "Crank up the junker", 1)
-	buildEvent(6, "Event-commence", "Start driving", 1)
-	buildEvent(7, "Event-drive", "Drive to destination", 819)
-	buildEvent(8, "Event-stop", "Stop driving", 1)
-	buildEvent(9, 	"Event-unload", "Unload the luggage", 42)
+	buildEvent(eventMap, 0, "Event-plan", "Plan car trip", 201)
+	buildEvent(eventMap, 1, "Event-fix junker", "Repair the car as needed", 505)
+	buildEvent(eventMap, 2, "Event-pack", "Pack up the stuff (but not the kids and dog)", 317)
+	buildEvent(eventMap, 3, "Event-load", "Load the luggage (inclduing the kids and dog)", 127)
+	buildEvent(eventMap, 4, "Event-gasUp", "Fill the gas tank", 12)
+	buildEvent(eventMap, 5, "Event-startCar", "Crank up the junker", 1)
+	buildEvent(eventMap, 6, "Event-commence", "Start driving", 1)
+	buildEvent(eventMap, 7, "Event-drive", "Drive to destination", 819)
+	buildEvent(eventMap, 8, "Event-stop", "Stop driving", 1)
+	buildEvent(eventMap, 9, "Event-unload", "Unload the luggage", 42)
 
 	return eventMap
 }
 
 func buildExample() map[int]*Event {
-	eventMap = buildEvents()
+	eventMap := buildEvents()
 	buildConstraints(eventMap)
 	computeOutgoing(eventMap)
 	return eventMap
 }
 
 func main() {
-	eventMap = buildExample()
+	eventMap := buildExample()
 	list := listifyMap(eventMap)
 	dumpList("Original list:\n", list)
-	sortedList := topSort(list)
+	sortedList := topSort(eventMap, list)
 	dumpList("Sorted list:\n", sortedList)
 }
