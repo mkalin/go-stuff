@@ -145,43 +145,59 @@ func dumpList(msg string, list []*Event) {
 	}
 }
 
-func buildConstraint(hash map[int]*Event, i int, j int, f TempFunc, in int, out int) {
-	e1 := hash[i]
-	e2 := hash[j]
-	inE := hash[in]
-	outE := hash[out]
+func addConstraint(e1 *Event, e2 *Event, f TempFunc) {
 	r := &Relation { tempFunc: f, event: e2 }
 	e1.TempRelations = append(e1.TempRelations, r)
-	inE.Incoming = append(inE.Incoming, outE)
+	e1.Incoming = append(e1.Incoming, e2)
 }
 
 func buildConstraints(hash map[int]*Event) {
-	// e1 (plan) is During e2 (fix car)
-	buildConstraint(hash, 1, 0, During, 1, 0)
+	//  Fixing the car (1) is During planning (0)
+	e1 := hash[1]
+	e2 := hash[0]
+	addConstraint(e1, e2, During)
 
-	// e1 (plan) is also During e2 (prepare luggage)
-	buildConstraint(hash, 1, 2, During, 1, 2)
+	// Preparing the luggage (2) is During planning (0)
+	e1 = hash[2]
+	e2 = hash[0]
+	addConstraint(e1, e2, During)
 
-	// e2 (load luggage) is After e1 (prepare luggage)
-	buildConstraint(hash, 3, 2, FinishBeforeStart, 2, 3)
+	// Loading the luggage (3) is After preparing the luggage (2)
+	e1 = hash[3]
+	e2 = hash[2]
+	addConstraint(e1, e2, FinishBeforeStart)
 
-	// e1 (load luggage) is Before e2 (gas up car)
-	buildConstraint(hash, 3, 4, FinishBeforeStart, 4, 3)
+	// Fixing the car (1) is Before gassing up the car (4)
+	e1 = hash[4]
+	e2 = hash[1]
+	addConstraint(e1, e2, FinishBeforeStart)
 
-	// e2 (start car) is AtFinish of e1 (gas up car)
-	buildConstraint(hash, 4, 5, StartAtFinish, 5, 4)
+	// Final check (5) is AtFinish of gassing up the car (4)
+	e1 = hash[5]
+	e2 = hash[4]
+	addConstraint(e1, e2, StartAtFinish)
 
-	// commence driving (e2) when car is started (e1)
-	buildConstraint(hash, 5, 6, StartAtFinish, 6, 5)
+	// Start driving (6) After final check (5) and luggage loaded (3)
+	e1 = hash[6]
+	e2 = hash[5]
+	addConstraint(e1, e2, StartAfterFinish)
+	e2 = hash[3]
+	addConstraint(e1, e2, StartAfterFinish)
 
-	// drive to destination (e2) once driving has begun (e1)
-	buildConstraint(hash, 6, 7, StartAtFinish, 7, 6)
+	// Drive to destination (7) After starting (6)
+	e1 = hash[7]
+	e2 = hash[6]
+	addConstraint(e1, e2, StartAfterFinish)
 
-	// stop at destination (e2) once the driving there is done (e1)
-	buildConstraint(hash, 7, 8, StartAtFinish, 8, 7)
+	// Eat (8) while driving (7).
+	e1 = hash[8]
+	e2 = hash[7]
+	addConstraint(e1, e2, During)
 
-	// unpack (e2) once the driving is over (e1)
-	buildConstraint(hash, 8, 9, StartAtFinish, 9, 8)
+	// Unload (9) After driving to destination (7)
+	e1 = hash[9]
+	e2 = hash[7]
+	addConstraint(e1, e2, StartAtFinish)
 }
 
 func buildEvent(eventMap map[int]*Event, id int, name string, desc string, dur time.Duration) {
@@ -195,34 +211,18 @@ func buildEvent(eventMap map[int]*Event, id int, name string, desc string, dur t
 }
 
 func buildEvents() map[int]*Event {
-	/* Sample problem with sample events:
-
-	 Problem: Take an automobile trip from X to Y.
-	 
-	 Events:
-	 -- service the automobile (0)
-	 -- plan the trip          (1)
-	 -- prepare the luggage    (2)
-	 -- load the luggage       (3)
-	 -- gas up the car         (4)            
-	 -- start the car          (5)
-	 -- commence driving       (6)
-	 -- drive to destination   (7)
-	 -- stop the car           (8)
-	 -- unload the luggage     (9)
-	 */
 	eventMap := make(map[int]*Event)
 
-	buildEvent(eventMap, 0, "Event-plan", "Plan car trip", 201)
-	buildEvent(eventMap, 1, "Event-fix junker", "Repair the car as needed", 505)
-	buildEvent(eventMap, 2, "Event-pack", "Pack up the stuff (but not the kids and dog)", 317)
-	buildEvent(eventMap, 3, "Event-load", "Load the luggage (inclduing the kids and dog)", 127)
-	buildEvent(eventMap, 4, "Event-gasUp", "Fill the gas tank", 12)
-	buildEvent(eventMap, 5, "Event-startCar", "Crank up the junker", 1)
-	buildEvent(eventMap, 6, "Event-commence", "Start driving", 1)
-	buildEvent(eventMap, 7, "Event-drive", "Drive to destination", 819)
-	buildEvent(eventMap, 8, "Event-stop", "Stop driving", 1)
-	buildEvent(eventMap, 9, "Event-unload", "Unload the luggage", 42)
+	buildEvent(eventMap, 0, "Plan trip", "Plan car trip", 201)
+	buildEvent(eventMap, 1, "Fix junker", "Repair the car as needed", 505)
+	buildEvent(eventMap, 2, "Prepare luggage", "Begin to pack up the stuff (but not the kids and dog)", 317)
+	buildEvent(eventMap, 3, "Load luggage", "Load the luggage (inclduing the kids and dog)", 127)
+	buildEvent(eventMap, 4, "Gas up car", "Fill the gas tank", 12)
+	buildEvent(eventMap, 5, "Final check", "Check that all's ready", 1)
+	buildEvent(eventMap, 6, "Start trip", "Start driving", 1)
+	buildEvent(eventMap, 7, "Drive", "Drive to destination", 819)
+	buildEvent(eventMap, 8, "Eat and drive", "Eat while driving", 18)
+	buildEvent(eventMap, 9, "Unload", "Unload the luggage", 42)
 
 	return eventMap
 }
@@ -238,6 +238,6 @@ func main() {
 	eventMap := buildExample()
 	list := listifyMap(eventMap)
 	dumpList("Original list:\n", list)
-	sortedList := topSort(eventMap, list)
-	dumpList("Sorted list:\n", sortedList)
+	//sortedList := topSort(eventMap, list)
+	//dumpList("Sorted list:\n", sortedList)
 }
