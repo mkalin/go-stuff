@@ -72,8 +72,8 @@ func (e *Event) String() string {
 		tos = append(tos, to.Id)
 	}
 
-	return fmt.Sprintf("%s:\n\tId:\t%1d\n\tStart:\t%v (%v)\n\tFrom:\t%v (%v in all)\n\tTo:\t%v (%v in all)\n", 
-		e.Name, e.Id, e.Start, e.Start.UnixNano(), froms, len(froms), tos, len(tos))
+	return fmt.Sprintf("%s:\n\tId:\t%1d\n\tStart:\t%v (%v)\n\tFrom:\t%v (%v in all)\n\tTo:\t%v (%v in all)\n\tDur:\t%v", 
+		e.Name, e.Id, e.Start, e.Start.UnixNano(), froms, len(froms), tos, len(tos), e.Duration)
 }
 
 //** topological sort support
@@ -243,6 +243,22 @@ func buildEvents() map[int]*Event {
 	return eventMap
 }
 
+func getStart(list []*Event) *Event {
+	var start *Event
+	found := false
+	for _, event := range list {
+		if len(event.Incoming) == 0 {
+			if found == true {  // too many start Events
+				return nil
+			} else {
+				found = true
+				start = event
+			}
+		}
+	}
+	return start
+}
+
 func buildExample() map[int]*Event {
 	eventMap := buildEvents()
 	buildConstraints(eventMap)
@@ -252,8 +268,9 @@ func buildExample() map[int]*Event {
 
 func main() {
 	eventMap := buildExample()
-	list := listifyMap(eventMap)
-	dumpList("Original list:\n", list)
-	sortedList := topSort(eventMap, list)
+	sortedList := topSort(eventMap, listifyMap(eventMap))
+	//start := getStart(sortedList)
+	
+
 	dumpList("Sorted list:\n", sortedList)
 }
