@@ -159,6 +159,8 @@ func CheckConstraints(hash map[int]*Event) bool {
 	return true
 }
 
+
+
 func AddConstraint(e1 *Event, e2 *Event, f TempFunc) {
 	r := &Relation { tempFunc: f, event: e2 }
 	e1.TempRelations = append(e1.TempRelations, r)
