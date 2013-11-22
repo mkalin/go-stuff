@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -33,32 +34,24 @@ func (s Events) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s ByStart) Less(i, j int) bool { return s.Events[i].Start.Before(s.Events[j].Start) }
 
 //** Temporal relations implemented as 2-arg functions
-type TempFunc func(*Event, *Event) bool
+type TempRel func(*Event, *Event) bool
 type Relation struct {
-	tempFunc TempFunc
-	event    *Event
+	Predicate TempRel
+	Relatum   *Event
+	PredName  string
 }
 
 //** sample temporal relations: extend as desired
-// Some relations are definable via others. For example, StartAfterStart
-// could be defined as 
-//      !(StartBeforeStart || StartAtStart)
-// The relations listed here are simply relatively basic examples.
-func FinishAfterFinish(e1, e2 *Event) bool {	return e1.Finish.After(e2.Finish) }
-func FinishAfterStart(e1, e2 *Event) bool { return e1.Finish.After(e2.Start) }
-func FinishBeforeStart(e1, e2 *Event) bool { return e1.Finish.Before(e2.Start) }
-func FinishBeforeFinish(e1, e2 *Event) bool { return e1.Finish.Before(e2.Finish) }
-func FinishAtFinish(e1, e2 *Event) bool {	return e1.Finish.Equal(e2.Finish) }
-func FinishAtStart(e1, e2 *Event) bool { return e1.Finish.Equal(e2.Start) }
+func StartAfterStart(e1, e2 *Event) bool { return e2.Start.After(e1.Start) }
+func StartAfterFinish(e1, e2 *Event) bool { return e2.Start.After(e1.Finish) }
+func StartAtStart(e1, e2 *Event) bool { return e2.Start.Equal(e1.Start) }
+func StartAtFinish(e1, e2 *Event) bool { return e2.Start.Equal(e1.Finish) }
 
-func StartAfterStart(e1, e2 *Event) bool { return e1.Start.After(e2.Start) }
-func StartAfterFinish(e1, e2 *Event) bool { return e1.Start.After(e2.Finish) }
-func StartBeforeStart(e1, e2 *Event) bool { return e1.Start.Before(e2.Start) }
-func StartBeforeFinish(e1, e2 *Event) bool { return e1.Start.Before(e2.Finish) }
-func StartAtStart(e1, e2 *Event) bool { return e1.Start.Equal(e2.Start) }
-func StartAtFinish(e1, e2 *Event) bool { return e1.Start.Equal(e2.Finish) }
-
-func During(e1, e2 *Event) bool { return e1.Start.After(e2.Start) && e1.Finish.Before(e2.Finish) }
+var RelMap = map[string]TempRel {
+	"StartAfterStart":   StartAfterStart,
+   "StartAfterFinish":  StartAfterFinish,
+   "StartAtStart":      StartAtStart,
+   "StartAtFinish":     StartAtFinish}
 
 //** methods
 func (e *Event) String() string {
@@ -144,14 +137,14 @@ func dumpList(msg string, list []*Event) {
 	}
 }
 
-func CheckConstraint(f TempFunc, e1 *Event, e2 *Event) bool {
+func CheckConstraint(f TempRel, e1 *Event, e2 *Event) bool {
 	return f(e1, e2)
 }
 
 func CheckConstraints(hash map[int]*Event) bool {
 	for _, event := range hash {
 		for _, tr := range event.TempRelations {
-			if !tr.tempFunc(event, tr.event) {
+			if !tr.Predicate(event, tr.Relatum) {
 				return false
 			}
 		}
@@ -159,61 +152,59 @@ func CheckConstraints(hash map[int]*Event) bool {
 	return true
 }
 
-
-
-func AddConstraint(e1 *Event, e2 *Event, f TempFunc) {
-	r := &Relation { tempFunc: f, event: e2 }
+func AddConstraint(e1 *Event, e2 *Event, name string) {
+	r := &Relation { Predicate: RelMap[name], Relatum: e2, PredName: name }
 	e1.TempRelations = append(e1.TempRelations, r)
 	e1.Incoming = append(e1.Incoming, e2)
 }
 
 func buildConstraints(hash map[int]*Event) {
-	//  Fixing the car (1) is During planning (0)
+	//  Fixing the car (1) is after planning (0)
 	e1 := hash[1]
 	e2 := hash[0]
-	AddConstraint(e1, e2, During)
+	AddConstraint(e1, e2, "StartAfterStart")
 
-	// Preparing the luggage (2) is During planning (0)
+	// Preparing the luggage (2) is After starting planning (0)
 	e1 = hash[2]
 	e2 = hash[0]
-	AddConstraint(e1, e2, During)
+	AddConstraint(e1, e2, "StartAfterStart")
 
 	// Loading the luggage (3) is After preparing the luggage (2)
 	e1 = hash[3]
 	e2 = hash[2]
-	AddConstraint(e1, e2, FinishBeforeStart)
+	AddConstraint(e1, e2, "StartAfterFinish")
 
 	// Fixing the car (1) is Before gassing up the car (4)
 	e1 = hash[4]
 	e2 = hash[1]
-	AddConstraint(e1, e2, FinishBeforeStart)
+	AddConstraint(e1, e2, "StartAfterFinish")
 
 	// Final check (5) is AtFinish of gassing up the car (4)
 	e1 = hash[5]
 	e2 = hash[4]
-	AddConstraint(e1, e2, StartAtFinish)
+	AddConstraint(e1, e2, "StartAtFinish")
 
 	// Start driving (6) After final check (5) and luggage loaded (3)
 	e1 = hash[6]
 	e2 = hash[5]
-	AddConstraint(e1, e2, StartAfterFinish)
+	AddConstraint(e1, e2, "StartAfterFinish")
 	e2 = hash[3]
-	AddConstraint(e1, e2, StartAfterFinish)
+	AddConstraint(e1, e2, "StartAfterFinish")
 
 	// Drive to destination (7) After starting (6)
 	e1 = hash[7]
 	e2 = hash[6]
-	AddConstraint(e1, e2, StartAfterFinish)
+	AddConstraint(e1, e2, "StartAfterFinish")
 
 	// Eat (8) while driving (7).
 	e1 = hash[8]
 	e2 = hash[7]
-	AddConstraint(e1, e2, During)
+	AddConstraint(e1, e2, "StartAfterStart")
 
 	// Unload (9) After driving to destination (7)
 	e1 = hash[9]
 	e2 = hash[7]
-	AddConstraint(e1, e2, StartAtFinish)
+	AddConstraint(e1, e2, "StartAtFinish")
 }
 
 func buildEvent(eventMap map[int]*Event, id int, name string, desc string, dur time.Duration) {
@@ -243,6 +234,36 @@ func buildEvents() map[int]*Event {
 	return eventMap
 }
 
+func setTimes(event *Event, start time.Time) {
+	event.Start = start
+	event.Finish = event.Start.Add(event.Duration * event.DurationScale)
+}
+
+func computeTimesForRelations(event *Event) {
+	if event == nil { return }
+
+	for _, tr := range event.TempRelations {
+		switch tr.PredName {
+		case "StartAfterStart":
+			setTimes(tr.Relatum, event.Start.Add(time.Duration(1) * event.DurationScale))
+		case "StartAtStart":
+			setTimes(tr.Relatum, event.Start)
+		case "StartAfterFinish":
+			setTimes(tr.Relatum, event.Start.Add((event.Duration + time.Duration(1)) * event.DurationScale))
+		case "StartAtFinish":
+			setTimes(tr.Relatum, event.Start.Add(event.Duration * event.DurationScale))
+		}
+	}
+}
+
+func propagateTimes(events []*Event) {
+	for _, event := range events {
+		fmt.Println("%%% " + event.Name)
+		computeTimesForRelations(event)
+		propagateTimes(event.Outgoing)
+	}
+}
+
 func getStart(list []*Event) *Event {
 	var start *Event
 	found := false
@@ -269,8 +290,13 @@ func buildExample() map[int]*Event {
 func main() {
 	eventMap := buildExample()
 	sortedList := topSort(eventMap, listifyMap(eventMap))
-	//start := getStart(sortedList)
-	
 
+	start := getStart(sortedList)
+	if start == nil {
+		fmt.Println("Too many start nodes. Exiting.\n")
+		os.Exit(0)
+	}
+	setTimes(start, time.Now())
+	propagateTimes(start.Outgoing)
 	dumpList("Sorted list:\n", sortedList)
 }
