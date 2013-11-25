@@ -20,21 +20,21 @@ type Msg struct {
 	col  int
 	ant *Ant
 }
-var channels []chan Msg
+var channels []chan *Msg
 
 type Ant struct {
 	id    rune
 	moves int     // how many times an Ant has moved overall
 	stays int     // how many times an Ant has stayed in its current cell
 	cell  *Cell   // current cell
-	pipe  chan Msg
+	pipe  chan *Msg
 }
 
 type Cell struct {
-	count    int // how many times an ant has moved into this cell
-	row      int
-	col      int
-	occupant *Ant
+	count int // how many times an ant has moved into this cell
+	row   int
+	col   int
+	ant  *Ant
 }
 
 const dim int = 8
@@ -49,8 +49,8 @@ func displayBoard() {
 	for i := 0; i < dim; i++ {
 		fmt.Print("\t")
 		for j := 0; j < dim; j++ {
-			if matrix[i][j].occupant != nil {
-				display = fmt.Sprintf(" %c ", matrix[i][j].occupant.id)
+			if matrix[i][j].ant != nil {
+				display = fmt.Sprintf(" %c ", matrix[i][j].ant.id)
 			}
 			fmt.Print(border + display + border)
 		}
@@ -72,33 +72,33 @@ func updateBoard() {
 		select {
 		case msg, ok := <-channel:
 			if ok { 
-				if matrix[msg.row][msg.col].occupant != nil { // already occupied?
+				if matrix[msg.row][msg.col].ant != nil { // already occupied?
 					msg.ant.stays++
 				} else {
 					msg.ant.cell = &matrix[msg.row][msg.col]
-					msg.ant.cell.occupant = msg.ant
+					msg.ant.cell.ant = msg.ant
 					msg.ant.cell.count++
 					msg.ant.moves++
 				}
 			}
 		default:
 		}
+		displayBoard()
 	}
 }
 
-func takeRandomStep() {
-	for {
-
-	}
-}
-
-func simulate(cell *Cell) {
+func randomStep(cell *Cell) {
 	for {
 		if stop { break }
 
-		takeRandomStep()
-		displayBoard()
-		time.Sleep(time.Duration(5) * time.Millisecond)
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		r, c := targetRC(cell.row, cell.col)
+		msg := &Msg{row: r, 
+                  col: c, 
+                  ant: cell.ant}
+		cell.ant.pipe<- msg
+		zzz := rng.Intn(30)
+		time.Sleep(time.Duration(zzz) * time.Millisecond)
 	}
 }
 
@@ -118,7 +118,7 @@ func initialize(n int) {
    // one ant might displace another in a cell.)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	idC := 'a'
-	channels = []chan Msg{}
+	channels = []chan *Msg{}
 	for i := 0; i < n; i++ {
 		row := r.Intn(dim)
 		col := r.Intn(dim)
@@ -127,8 +127,8 @@ func initialize(n int) {
 			moves: 0,
 			stays: 0,
 			cell:  &matrix[row][col],
-		   pipe:  make(chan Msg)}
-		matrix[row][col].occupant = ant
+		   pipe:  make(chan *Msg)}
+		matrix[row][col].ant = ant
 		idC++
 		channels = append(channels, ant.pipe)
 	}
