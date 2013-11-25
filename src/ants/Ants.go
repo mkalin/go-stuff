@@ -88,9 +88,7 @@ func updateBoard() {
 
 func takeRandomStep() {
 	for {
-		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-		zs := rng.Intn(20)
-		time.Sleep(time.Duration(zs) * time.Millisecond)
+
 	}
 }
 
