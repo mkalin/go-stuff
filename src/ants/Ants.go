@@ -83,7 +83,7 @@ func randomStep(ant *Ant) {
 		msg := &Msg{row: r,
                   col: c,
                   ant: ant}
-		ant.pipe <- msg
+		ant.pipe <-msg
 		zzz := rng.Intn(maxPause)
 		time.Sleep(time.Duration(zzz) * time.Millisecond)
 	}
@@ -100,27 +100,31 @@ func initialize(n int) {
 		}
 	}
 	
-	// Randomly populate the matrix with at most N ants.
-	// (It's possible but unlikely that, during initialization, 
-   // one ant might displace another in a cell.)
+	// Randomly populate the matrix with N ants.
 	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	idC := 'a'
 	channels = []chan *Msg{}
 	ants = []*Ant{}
+	i := 0
 
-	for i := 0; i < n; i++ {
+	for {
+		if (i >= n) { break }
+
 		row := rng.Intn(dim)
 		col := rng.Intn(dim)
-		ant := &Ant { 
-			id:    idC,
-			moves: 0,
-			stays: 0,
-			cell:  &matrix[row][col],
-		   pipe:  make(chan *Msg, 1)}
-		matrix[row][col].ant = ant
-		idC++
-		channels = append(channels, ant.pipe)
-		ants = append(ants, ant)
+		if (matrix[row][col].ant == nil) {
+			ant := &Ant { 
+				id:    idC,
+				moves: 0,
+				stays: 0,
+				cell:  &matrix[row][col],
+		      pipe:  make(chan *Msg, 1)}
+			matrix[row][col].ant = ant
+			idC++
+			channels = append(channels, ant.pipe)
+			ants = append(ants, ant)
+			i++
+		}
 	}
 }
 
@@ -144,7 +148,6 @@ func main() {
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM) // control-C
 	log.Println(<-ch)
 	log.Println("Gracefully shutting down...")
-
 	time.Sleep(time.Duration(1) * time.Second)
 
 	dumpAnts()
