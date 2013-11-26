@@ -32,7 +32,6 @@ type Ant struct {
 var ants []*Ant
 
 type Cell struct {
-	count    int     // how many times an ant has moved into this cell
 	row      int     // fixed 
 	col      int     // fixed
 	ant      *Ant
@@ -68,7 +67,6 @@ func updateBoard() {
 				matrix[msg.row][msg.col].ant = msg.ant
 				matrix[msg.ant.cell.row][msg.ant.cell.col].ant = nil
 				msg.ant.cell = &matrix[msg.row][msg.col]
-				msg.ant.cell.count++
 				msg.ant.moves++
 			}
 		}
