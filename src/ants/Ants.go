@@ -57,6 +57,7 @@ func targetRC(row int, col int) (int, int) {
 	return ((r % dim) + dim) % dim, ((c % dim) + dim) % dim
 }
 
+// consumer
 func updateBoard() {
 	for {
 		for _, channel := range channels {
@@ -73,6 +74,7 @@ func updateBoard() {
 	}
 }
 
+// producer
 func randomStep(ant *Ant) {
 	for {
 		if stop { break }
@@ -81,10 +83,11 @@ func randomStep(ant *Ant) {
 		msg := &Msg{row: r,
                   col: c,
                   ant: ant}
-		ant.pipe <-msg
+		ant.pipe<-msg
 		zzz := rng.Intn(maxPause)
 		time.Sleep(time.Duration(zzz) * time.Millisecond)
 	}
+	close(ant.pipe)
 }
 
 func initialize(n int) {
