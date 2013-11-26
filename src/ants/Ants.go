@@ -105,8 +105,8 @@ func initialize(n int) {
 	idC := 'a'
 	channels = []chan *Msg{}
 	ants = []*Ant{}
-	i := 0
 
+	i := 0
 	for {
 		if (i >= n) { break }
 
