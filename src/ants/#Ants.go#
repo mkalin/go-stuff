@@ -154,3 +154,4 @@ func main() {
 	dumpAnts()
 	os.Exit(0) // kill all goroutines
 }
+
